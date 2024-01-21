@@ -2,7 +2,7 @@ version: 0.2
 phases:
   install:
     runtime-versions:
-      python: 3.8
+      python: 3.9
     commands:
       - pip install --upgrade pip
       - pip install --upgrade awscli aws-sam-cli
@@ -13,7 +13,12 @@ phases:
                     --template ${ENV_TEMPLATE}
                     --capabilities CAPABILITY_IAM
                     --region ${ENV_REGION}
+                    {%- if cookiecutter.testing_artifacts_bucket %}
                     --s3-bucket ${ENV_BUCKET}
+                    {%- endif %}
+                    {%- if cookiecutter.testing_artifacts_bucket_prefix_sam %}
+                    --s3-prefix ${ENV_BUCKET_PREFIX}
+                    {%- endif %}
                     {%- if cookiecutter.testing_image_repository %}
                     --image-repository ${ENV_IMAGE_REPOSITORY}
                     {%- endif %}

@@ -27,7 +27,7 @@
     },
     {
       "key": "main_git_branch",
-      "question": "What is the Git branch used for production deployments?",
+      "question": "What is the Git branch used for the SAM application? This should be your git repository",
       "default": "main"
     },
     {
@@ -51,18 +51,18 @@
     },
     {
       "key": "testing_stage_name",
-      "question": "What is the name of stage 1 (as provided during the bootstrapping)?\nSelect an index or enter the stage name",
+      "question": "What is the name of stage (as provided during the bootstrapping)?\nSelect an index or enter the stage name",
       "isRequired": true
     },
     {
       "key": "testing_stack_name",
-      "question": "What is the sam application stack name for stage 1?",
+      "question": "What is your sam application stack name?",
       "isRequired": true,
       "default": "sam-app"
     },
     {
       "key": "testing_pipeline_execution_role",
-      "question": "What is the pipeline execution role ARN for stage 1?",
+      "question": "What is the pipeline execution role ARN for this stage?",
       "isRequired": true,
       "allowAutofill": true,
       "default": {
@@ -76,7 +76,7 @@
     },
     {
       "key": "testing_cloudformation_execution_role",
-      "question": "What is the CloudFormation execution role ARN for stage 1?",
+      "question": "What is the CloudFormation execution role ARN for this stage?",
       "isRequired": true,
       "allowAutofill": true,
       "default": {
@@ -90,9 +90,9 @@
     },
     {
       "key": "testing_artifacts_bucket",
-      "question": "What is the S3 bucket name for artifacts for stage 1?",
+      "question": "What is the S3 bucket name used for artifacts of SAM deployments? Not the ARN, the name.",
       "isRequired": true,
-      "allowAutofill": true,
+      "allowAutofill": false,
       "default": {
         "keyPath": [
           {
@@ -103,8 +103,15 @@
       }
     },
     {
+      "key": "testing_artifacts_bucket_prefix_sam",
+      "question": "What is the prefix of the S3 bucket used for artifacts of SAM deployments?",
+      "isRequired": true,
+      "allowAutofill": false,
+      "default": ""
+    },
+    {
       "key": "testing_image_repository",
-      "question": "What is the ECR repository URI for stage 1?",
+      "question": "What is the ECR repository URI for this stage?",
       "allowAutofill": true,
       "default": {
         "keyPath": [
@@ -117,7 +124,7 @@
     },
     {
       "key": "testing_region",
-      "question": "What is the AWS region for stage 1?",
+      "question": "What is the AWS region?",
       "isRequired": true,
       "allowAutofill": true,
       "default": {
@@ -131,7 +138,7 @@
     },
     {
       "key": "message_testing_stage_configured",
-      "question": "Stage 1 configured successfully (you only have one stage).\n",
+      "question": "Stage configured successfully (you only have one stage).\n",
       "kind": "info"
     },
     {

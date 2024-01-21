@@ -1,5 +1,6 @@
 {% set is_codestar_source = cookiecutter.codestar_full_repository_id != "" -%}
 {% set is_codecommit_source = cookiecutter.codecommit_repository_name != "" -%}
+{% set is_s3_artifact_bucket_created = cookiecutter.testing_artifacts_bucket != "" -%}
 AWSTemplateFormatVersion : '2010-09-09'
 Description: >
   This template deploys a CodePipeline with its required resources.
@@ -69,6 +70,9 @@ Parameters:
   TestingArtifactBucket:
     Type: String
     Default: "{{cookiecutter.testing_artifacts_bucket}}"
+  TestingArtifactBucketPrefix:
+    Type: String
+    Default: "{{cookiecutter.testing_artifacts_bucket_prefix_sam}}"
   TestingImageRepository:
     Type: String
     {%- if cookiecutter.testing_image_repository %}
@@ -131,7 +135,7 @@ Resources:
               -
                 Effect: Allow
                 Action: codepipeline:StartPipelineExecution
-                Resource: !Sub "arn:aws:codepipeline:${AWS::Region}:${AWS::AccountId}:${Pipeline}"
+                Resource: !Sub "arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:${Pipeline}"
 
   CloudWatchEventRule:
     Type: AWS::Events::Rule
@@ -142,7 +146,7 @@ Resources:
         detail-type:
           - 'CodeCommit Repository State Change'
         resources:
-          - !Sub "arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:${CodeCommitRepositoryName}"
+          - !Sub "arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${CodeCommitRepositoryName}"
         detail:
           event:
             - referenceCreated
@@ -152,7 +156,7 @@ Resources:
           referenceName:
             - !If [IsFeatureBranchPipeline, !Ref FeatureGitBranch, !Ref MainGitBranch]
       Targets:
-        - Arn: !Sub "arn:aws:codepipeline:${AWS::Region}:${AWS::AccountId}:${Pipeline}"
+        - Arn: !Sub "arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:${Pipeline}"
           RoleArn: !GetAtt CloudWatchEventRole.Arn
           Id: codepipeline-AppPipeline
   {%- endif %}
@@ -167,7 +171,11 @@ Resources:
     Type: AWS::CodePipeline::Pipeline
     Properties:
       ArtifactStore:
+        {%- if is_s3_artifact_bucket_created %}
+        Location: "{{cookiecutter.testing_artifacts_bucket}}"
+        {%- else %}
         Location: !Ref PipelineArtifactsBucket
+        {%- endif %}
         Type: S3
       RoleArn: !GetAtt CodePipelineExecutionRole.Arn
       RestartExecutionOnUpdate: true
@@ -302,6 +310,7 @@ Resources:
                       {"name": "ENV_PIPELINE_EXECUTION_ROLE", "value": "${TestingPipelineExecutionRole}"},
                       {"name": "ENV_CLOUDFORMATION_EXECUTION_ROLE", "value": "${TestingCloudFormationExecutionRole}"},
                       {"name": "ENV_BUCKET", "value": "${TestingArtifactBucket}"},
+                      {"name": "ENV_BUCKET_PREFIX", "value": "${TestingArtifactBucketPrefix}"},
                       {"name": "ENV_IMAGE_REPOSITORY", "value": "${TestingImageRepository}"}
                     ]
                 InputArtifacts:
@@ -321,6 +330,9 @@ Resources:
               #   RunOrder: 2
           - !Ref AWS::NoValue
 
+  {%- if is_s3_artifact_bucket_created %}
+  # Don't create the S3 buckets
+  {%- else %}
   PipelineArtifactsBucket:
     Type: AWS::S3::Bucket
     DeletionPolicy: Retain
@@ -356,8 +368,8 @@ Resources:
               - s3:*
             Effect: Allow
             Resource:
-              - !Sub arn:aws:s3:::${PipelineArtifactsBucket}
-              - !Sub arn:aws:s3:::${PipelineArtifactsBucket}/*
+              - !Sub arn:${AWS::Partition}:s3:::${PipelineArtifactsBucket}
+              - !Sub arn:${AWS::Partition}:s3:::${PipelineArtifactsBucket}/*
             Principal:
               AWS:
                 - !GetAtt CodePipelineExecutionRole.Arn
@@ -368,6 +380,9 @@ Resources:
     UpdateReplacePolicy: Retain
     Properties:
       AccessControl: "LogDeliveryWrite"
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership:  ObjectWriter
       VersioningConfiguration:
         Status: Enabled
       BucketEncryption:
@@ -390,6 +405,7 @@ Resources:
             Condition:
               Bool:
                 aws:SecureTransport: false
+  {%- endif %}
 
   CodePipelineExecutionRole:
     Type: AWS::IAM::Role
@@ -434,7 +450,7 @@ Resources:
                   - 'codecommit:GetUploadArchiveStatus'
                   - 'codecommit:UploadArchive'
                 Resource:
-                  - !Sub "arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:${CodeCommitRepositoryName}"
+                  - !Sub "arn:${AWS::Partition}:codecommit:${AWS::Region}:${AWS::AccountId}:${CodeCommitRepositoryName}"
         {%- endif %}
         - PolicyName: CodePipelineCodeAndS3Bucket
           PolicyDocument:
@@ -445,16 +461,24 @@ Resources:
                   - s3:GetBucketLocation
                 Effect: Allow
                 Resource:
+                  {%- if is_s3_artifact_bucket_created %}
+                  - Fn::Sub: "arn:${AWS::Partition}:s3:::{{cookiecutter.testing_artifacts_bucket}}"
+                  {%- else %}
                   Fn::GetAtt:
                     - PipelineArtifactsBucket
                     - Arn
+                  {%- endif %}
               - Action:
                   - "s3:GetObject"
                   - "s3:GetObjectVersion"
                   - "s3:PutObject"
                 Effect: Allow
                 Resource:
+                  {%- if is_s3_artifact_bucket_created %}
+                  - Fn::Sub: "arn:${AWS::Partition}:s3:::{{cookiecutter.testing_artifacts_bucket}}/*"
+                  {%- else %}
                   Fn::Sub: ${PipelineArtifactsBucket.Arn}/*
+                  {%- endif %}
 
         - PolicyName: CodePipelineCodeBuildAndCloudformationAccess
           PolicyDocument:
@@ -498,7 +522,7 @@ Resources:
                   - "cloudformation:SetStackPolicy"
                   - "cloudformation:ValidateTemplate"
                 Resource:
-                  - !Sub "arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/${AWS::StackName}/*"
+                  - !Sub "arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/${AWS::StackName}/*"
 
   # PipelineStackCloudFormationExecutionRole is used for the pipeline to self mutate
   PipelineStackCloudFormationExecutionRole:
@@ -551,7 +575,7 @@ Resources:
                   - "logs:CreateLogStream"
                   - "logs:PutLogEvents"
                 Resource:
-                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/*"
+                  - !Sub "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/*"
         - PolicyName: CodeBuildArtifactsBucket
           PolicyDocument:
             Version: "2012-10-17"
@@ -562,7 +586,11 @@ Resources:
                   - "s3:GetObjectVersion"
                   - "s3:PutObject"
                 Resource:
-                  - !Sub "arn:aws:s3:::${PipelineArtifactsBucket}/*"
+                  {%- if is_s3_artifact_bucket_created %}
+                  - !Sub "arn:${AWS::Partition}:s3:::{{cookiecutter.testing_artifacts_bucket}}/*"
+                  {%- else %}
+                  - !Sub "arn:${AWS::Partition}:s3:::${PipelineArtifactsBucket}/*"
+                   {%- endif %}
         - PolicyName: AssumeStagePipExecutionRoles
           PolicyDocument:
             Version: "2012-10-17"
@@ -612,6 +640,8 @@ Resources:
             Value: !Ref TestingCloudFormationExecutionRole
           - Name: TESTING_ARTIFACT_BUCKET
             Value: !Ref TestingArtifactBucket
+          - Name: TESTING_ARTIFACT_BUCKET_PREFIX
+            Value: !Ref TestingArtifactBucketPrefix
           - Name: TESTING_IMAGE_REPOSITORY
             Value: !Ref TestingImageRepository
           - Name: FEATURE_BRANCH_NAME
@@ -641,6 +671,8 @@ Resources:
             Value: !Ref TestingPipelineExecutionRole
           - Name: TESTING_ARTIFACT_BUCKET
             Value: !Ref TestingArtifactBucket
+          - Name: TESTING_ARTIFACT_BUCKET_PREFIX
+            Value: !Ref TestingArtifactBucketPrefix
           - Name: TESTING_IMAGE_REPOSITORY
             Value: !Ref TestingImageRepository
       ServiceRole: !GetAtt CodeBuildServiceRole.Arn

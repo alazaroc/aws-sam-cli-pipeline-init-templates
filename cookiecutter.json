@@ -3,12 +3,14 @@
   "git_provider_type": "",
   "codestar_full_repository_id": "",
   "codecommit_repository_name": "",
+  "codepipeline_s3_artifact": "",
   "main_git_branch": "",
   "sam_template": "",
   "testing_stack_name": "",
   "testing_pipeline_execution_role": "",
   "testing_cloudformation_execution_role": "",
   "testing_artifacts_bucket": "",
+  "testing_artifacts_bucket_prefix_sam": "",
   "testing_image_repository": "",
   "testing_region": ""
 }
