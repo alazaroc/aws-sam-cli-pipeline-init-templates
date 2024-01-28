@@ -17,8 +17,7 @@ In this post that I wrote in my blog, I explained how to use this template to cr
 I have also made some changes to the parameters section to customize it more.
 
 List of changes:
-- (new): codepipeline_s3_artifact - I wanted to be able to specify a custom bucket for my pipeline. However, we already had one... this bucket is only for the CodePipeline artifacts. Now, there are 2 buckets: one for the SAM deployments and the other for the CodePipeline artifacts
 - (new) testing_artifacts_bucket_prefix_sam: I wanted to specify the prefix of my s3 bucket...
 - (updated) CodeBuild buildspec_build_package.yml: Why I should use a container to build my application? It is time-consuming and you can do it directly...
 
-Please, if you like it, leave me a comment in my blog post <https://www.playingaws.com/posts/how-to-add-ci-cd-to-my-sam-project/>
+Please, if you like it, leave a comment in my blog post <https://www.playingaws.com/posts/how-to-add-ci-cd-to-my-sam-project/>
